@@ -1,0 +1,236 @@
+-- Table: active_workflow_steps
+
+-- DROP TABLE active_workflow_steps;
+
+CREATE TABLE active_workflow_steps
+(
+  workflow_id integer NOT NULL,
+  user_id integer NOT NULL,
+  workflow_actor character varying(50) NOT NULL,
+  workflow_action character varying(50) NOT NULL,
+  from_workflow_state character varying(50) NOT NULL,
+  to_workflow_state character varying NOT NULL,
+  created_at time without time zone NOT NULL,
+  action_remarks character varying(3000) NOT NULL,
+  created_by integer NOT NULL
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE active_workflow_steps
+  OWNER TO sa;
+COMMENT ON TABLE active_workflow_steps
+  IS 'Steps history of all active workflows. This will not be modified once created, and teh steps are accessed for a given workflow, and hence no primary key is defined for this table. ';
+
+
+
+-- Table: active_workflows
+
+-- DROP TABLE active_workflows;
+
+
+CREATE TABLE active_workflows
+(
+  workflow_id integer NOT NULL,
+  workflow_name character varying(50) NOT NULL,
+  document_id integer NOT NULL,
+  initiator_id integer NOT NULL,
+  initiator_assigned_role_id integer NOT NULL,
+  known_actors character varying(3000) NOT NULL, -- coded text internally used by the pplication
+  current_state character varying NOT NULL,
+  created_at time without time zone NOT NULL,
+  "created_ by" integer NOT NULL,
+  modified_at time without time zone NOT NULL,
+  modified_by integer NOT NULL,
+  CONSTRAINT "activeWorkflowsPk" PRIMARY KEY (workflow_id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE active_workflows
+  OWNER TO sa;
+COMMENT ON COLUMN active_workflows.known_actors IS 'coded text internally used by the pplication';
+
+
+
+
+
+
+
+
+-- Table: assigned_roles
+
+-- DROP TABLE assigned_roles;
+
+CREATE TABLE assigned_roles
+(
+  assigned_role_id integer NOT NULL,
+  role_id integer NOT NULL, -- from roles table
+  user_id integer NOT NULL, -- from users table
+  inactive boolean NOT NULL,
+  reporting_assigned_role_id integer NOT NULL, -- role reporting into
+  CONSTRAINT "assignedRolesPk" PRIMARY KEY (assigned_role_id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE assigned_roles
+  OWNER TO sa;
+COMMENT ON TABLE assigned_roles
+  IS 'users assigned to specific roles. A user may be assigned more than one role in the organization';
+COMMENT ON COLUMN assigned_roles.role_id IS 'from roles table';
+COMMENT ON COLUMN assigned_roles.user_id IS 'from users table';
+COMMENT ON COLUMN assigned_roles.reporting_assigned_role_id IS 'role reporting into';
+
+
+
+
+
+-- Table: "dataTypes"
+
+-- DROP TABLE "dataTypes";
+
+
+CREATE TABLE "dataTypes"
+(
+  text character varying(3000), -- general text with no constraint other than the length
+  "boolean" boolean, -- internal values are 0 and 1. Shoudl be mapped to others in data element definition.
+  "number" integer, -- We are not scientist, but business people. Numbers do not have sign!! And numbers mean whole number....
+  "signedNumber" integer, -- Should be used only when business case allows storing negative numbers.
+  "decimal" numeric(15,6),
+  "signedDecimal" numeric(15,6),
+  date date, -- date with no time in it
+  "dateAndTime" date, -- Date and time.
+  id integer,
+  name character varying(250),
+  "entityName" character varying(250),
+  amount numeric(15,2) -- Most amouunts are stored with two decimal precision. Japanese yen does not have fractions, while lira may be always in thousands!! We do not cater to them as of now :-(
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE "dataTypes"
+  OWNER TO sa;
+COMMENT ON TABLE "dataTypes"
+  IS 'Contains all the data types used in the project. Initital table supplied by Exility with the types that are internally used by Exility. These type shoudl not be modified.  
+
+All other tables should defines columns using one of these columsn as reference and NOT define their data types as part of column definition. This is to ensure that the design principles envisaged in Exility are properly implemenbted.
+
+This table will no have any data rows in it.';
+COMMENT ON COLUMN "dataTypes".text IS 'general text with no constraint other than the length';
+COMMENT ON COLUMN "dataTypes"."boolean" IS 'internal values are 0 and 1. Shoudl be mapped to others in data element definition.';
+COMMENT ON COLUMN "dataTypes"."number" IS 'We are not scientist, but business people. Numbers do not have sign!! And numbers mean whole number.
+postgres does not allow constraints, and hence we are unable to put the restriction that the value has to be positive. ';
+COMMENT ON COLUMN "dataTypes"."signedNumber" IS 'Should be used only when business case allows storing negative numbers. ';
+COMMENT ON COLUMN "dataTypes".date IS 'date with no time in it';
+COMMENT ON COLUMN "dataTypes"."dateAndTime" IS 'Date and time. ';
+COMMENT ON COLUMN "dataTypes".amount IS 'Most amouunts are stored with two decimal precision. Japanese yen does not have fractions, while lira may be always in thousands!! We do not cater to them as of now :-(';
+
+
+
+
+
+-- Table: roles
+
+-- DROP TABLE roles;
+
+
+
+CREATE TABLE roles
+(
+  role_id integer NOT NULL, -- internally generated key
+  role_name character varying(250) NOT NULL, -- unique as seen by users
+  role_description character varying(3000) NOT NULL,
+  inactive boolean NOT NULL,
+  CONSTRAINT "orgRolesPk" PRIMARY KEY (role_id),
+  CONSTRAINT "orgRolesUq" UNIQUE (role_name)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE roles
+  OWNER TO sa;
+COMMENT ON TABLE roles
+  IS 'Various roles that are defined for the entire organization. These rolesare used while defining workflow roles. Note that these roles arae NOT the roles defined in a workflow. Roles defined in work flow are rather linked to org roles defined in this table.';
+COMMENT ON COLUMN roles.role_id IS 'internally generated key';
+COMMENT ON COLUMN roles.role_name IS 'unique as seen by users';
+
+
+
+-- Table: users
+
+-- DROP TABLE users;
+
+
+CREATE TABLE users
+(
+  user_id integer NOT NULL,
+  login_id character varying(25) NOT NULL,
+  user_nick_name character varying(25) NOT NULL,
+  user_word character varying(250) NOT NULL, -- encrypted by the applicaiton before putting here
+  inactive boolean NOT NULL,
+  CONSTRAINT "usersPk" PRIMARY KEY (user_id),
+  CONSTRAINT "usersUq" UNIQUE (login_id)
+)
+WITH (
+  OIDS=FALSE
+);
+ALTER TABLE users
+  OWNER TO sa;
+COMMENT ON TABLE users
+  IS 'This is a sample table. Each application may have its own. We have defined it here for us to have the view orgUsers based on this';
+COMMENT ON COLUMN users.user_word IS 'encrypted by the applicaiton before putting here';
+
+
+
+
+
+-- Views--
+
+
+-- View: workflow_assigned_roles
+
+--
+ DROP VIEW workflow_assigned_roles;
+
+
+CREATE OR REPLACE VIEW workflow_assigned_roles AS 
+ SELECT assigned_roles.assigned_role_id, assigned_roles.role_id, 
+    assigned_roles.user_id, assigned_roles.reporting_assigned_role_id, 
+    assigned_roles.inactive
+   FROM assigned_roles;
+
+ALTER TABLE workflow_assigned_roles
+  OWNER TO sa;
+
+
+
+
+-- View: workflow_roles
+
+-- DROP VIEW workflow_roles;
+
+
+CREATE OR REPLACE VIEW workflow_roles AS 
+ SELECT roles.role_id, roles.role_name, roles.inactive
+   FROM roles;
+
+ALTER TABLE workflow_roles
+  OWNER TO sa;
+
+
+
+
+-- View: workflow_users
+
+-- DROP VIEW workflow_users;
+
+
+CREATE OR REPLACE VIEW workflow_users AS 
+ SELECT users.user_id, users.user_nick_name
+   FROM users;
+
+ALTER TABLE workflow_users
+  OWNER TO sa;
+
+

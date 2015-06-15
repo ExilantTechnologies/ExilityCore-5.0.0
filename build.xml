@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project default="createJar" name="exility.turtle">
+	<property name="bin" value="${basedir}/bin" />
+	<property name="jarName" value="exility.turtle.jar"/>
+	<property name="jar" value="${basedir}/${jarName}" />
+	<target name="createJar" description="Create jar file">
+		<jar basedir="${bin}" jarfile="${jar}" />
+		<copy file="${jar}" overwrite="true" todir="../exilityTurtleClient/WebContent/WEB-INF/lib/"></copy>
+	</target>
+</project>
